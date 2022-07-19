@@ -5,7 +5,9 @@ import torch.nn.functional as F
 import numpy as np
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu') 
-glove_path = './data/glove/glove.6B.50d.txt'
+glove_path = '../data/glove.6B.50d.txt'
+
+MAX_LENGTH = 15
 
 class EncoderRNN(nn.Module):
     def __init__(self, input_size, hidden_size, word2idx):
@@ -15,9 +17,8 @@ class EncoderRNN(nn.Module):
 
         # TODO: use pretrained weights
         # self.embedding = nn.Embedding(input_size, hidden_size)
-        self.weights = torch.tensor(self.load_glove_embeddings(glove_path, word2idx))
-        self.embedding = nn.Embedding.from_pretrained(self.weights)
-
+        self.glove_weights = self.load_glove_embeddings(glove_path, word2idx)
+        self.embedding = nn.Embedding.from_pretrained(self.glove_weights)
         # TODO: change to bidirectional LSTM
         # self.gru = nn.GRU(hidden_size, hidden_size)
         self.bilstm = nn.LSTM(self.hidden_size, self.hidden_size, bidirectional=True)
@@ -31,8 +32,8 @@ class EncoderRNN(nn.Module):
     def initHidden(self):
         return torch.zeros(1, 1, self.hidden_size, device=device)
     
-    def load_glove_embeddings(path, word2idx, embedding_dim=50):
-        with open(path) as f:
+    def load_glove_embeddings(self, path, word2idx, embedding_dim=50):
+        with open(path, encoding='utf-8') as f:
             embeddings = np.zeros((len(word2idx), embedding_dim))
             for line in f.readlines():
                 values = line.split()
@@ -53,8 +54,8 @@ class AttnDecoderRNN(nn.Module):
         self.max_length = max_length
         self.word2idx = word2idx
 
-        self.weights = torch.tensor(self.load_glove_embeddings(glove_path, word2idx))
-        self.embedding = nn.Embedding.from_pretrained(self.weights)
+        self.glove_weights = self.load_glove_embeddings(glove_path, word2idx)
+        self.embedding = nn.Embedding.from_pretrained(self.glove_weights)
         self.attn = nn.Linear(self.hidden_size * 2, self.max_length)
         self.attn_combine = nn.Linear(self.hidden_size * 2, self.hidden_size)
         self.dropout = nn.Dropout(self.dropout_p)
@@ -84,8 +85,8 @@ class AttnDecoderRNN(nn.Module):
     def initHidden(self):
         return torch.zeros(1, 1, self.hidden_size, device=device)
     
-    def load_glove_embeddings(path, word2idx, embedding_dim=50):
-        with open(path) as f:
+    def load_glove_embeddings(self, path, word2idx, embedding_dim=50):
+        with open(path, encoding='utf-8') as f:
             embeddings = np.zeros((len(word2idx), embedding_dim))
             for line in f.readlines():
                 values = line.split()
