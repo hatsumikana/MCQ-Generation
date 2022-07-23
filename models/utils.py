@@ -17,6 +17,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 DATA_DIR = "../data/"
 with open(DATA_DIR+"vocab.json", 'r') as f:
     WORD2IDX = json.load(f)
+    
 
 def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, max_length=MAX_LENGTH):
     encoder_hidden = encoder.initHidden()
@@ -150,9 +151,9 @@ def tensorsFromPair(pair):
     return (input_tensor, target_tensor)
 
 def sent2idx(sentence, word2idx=WORD2IDX):
-    idx_vector = [word2idx['SOS']]
+    idx_vector = [word2idx['<SOS>']]
     idx_vector += [word2idx.get(word.lower(),86267) for word in word_tokenize(sentence)]
-    idx_vector.append(word2idx['EOS'])
+    idx_vector.append(word2idx['<EOS>'])
     return idx_vector
     
 def sent2tensor(sentence, word2idx=WORD2IDX):

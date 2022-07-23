@@ -5,13 +5,15 @@ import json
 # Define start and end tokens
 SOS = 0
 EOS = 1
+pad = 2
+unk = 3
 
 class QuestionSentenceDataset:
     def __init__(self):
-        self.word2idx = {'SOS': SOS, 'EOS': EOS}
+        self.word2idx = {'<SOS>': SOS, '<EOS>': EOS, '<pad>': pad, '<unk>': unk}
         self.word2freq = {}
-        self.idx2word = {0: "SOS", 1: "EOS"}
-        self.word_count = 2  
+        self.idx2word = {0: "<SOS>", 1: "<EOS>", 2:"<pad>", 3:"<unk>"}
+        self.word_count = 4
 
     def add_to_vocab(self, sentence):
         # preprocess words

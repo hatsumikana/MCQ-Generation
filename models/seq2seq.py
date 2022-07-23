@@ -18,14 +18,14 @@ class EncoderRNN(nn.Module):
         # TODO: use pretrained weights
         # self.embedding = nn.Embedding(input_size, hidden_size)
         self.glove_weights = self.load_glove_embeddings(glove_path, word2idx)
-        self.embedding = nn.Embedding.from_pretrained(self.glove_weights, padding_idx=86267)
+        self.embedding = nn.Embedding.from_pretrained(self.glove_weights, padding_idx=word2idx["<pad>"])
         # TODO: change to bidirectional LSTM
         # self.gru = nn.GRU(hidden_size, hidden_size)
-        self.bilstm = nn.LSTM(self.hidden_size, self.hidden_size, bidirectional=False, batch_first=True)
+        self.lstm = nn.LSTM(self.hidden_size, self.hidden_size, bidirectional=False, batch_first=True)
 
     def forward(self, input, hidden):
         embedded = self.embedding(input).view(1, 1, -1)
-        output, hidden = self.bilstm(embedded, hidden)
+        output, hidden = self.lstm(embedded, hidden)
         return output, hidden
 
     def initHidden(self):

@@ -9,7 +9,7 @@ import pandas as pd
 import json
 from nltk.tokenize import word_tokenize
 
-BATCH_SIZE=3
+BATCH_SIZE=4
 
 from utils import *
 from seq2seq import EncoderRNN, AttnDecoderRNN
@@ -17,7 +17,40 @@ from seq2seq import EncoderRNN, AttnDecoderRNN
 DATA_DIR = "../data/"
 with open(DATA_DIR+"vocab.json", 'r') as f:
     WORD2IDX = json.load(f)
-    
+
+#defined maximum sentence and question length
+max_question_len = 15
+max_sentence_len = 15
+
+def isUnknown(token):
+    if token not in WORD2IDX: return WORD2IDX["<unk>"]
+    else: return WORD2IDX[token]
+
+#tokenization function
+text_pipeline = lambda x: [isUnknown(token) for token in word_tokenize(x)]
+
+#padding function
+sentence_padding_pipeline = lambda tokens: [WORD2IDX['<pad>'] for p in range(max_sentence_len - len(tokens))] + tokens[-max_sentence_len:]
+question_padding_pipeline = lambda tokens: [WORD2IDX['<pad>'] for p in range(max_question_len - len(tokens))] + tokens[:max_question_len]
+
+def collate_batch(batch):
+    #initizlize empty lists for sentence and question lists
+    sentence_list, question_list = [], []
+
+    for (sentence, question) in batch:
+        #sentence -> tokens -> id -> pad to max sentence length
+        sentence_ = sentence_padding_pipeline(text_pipeline(sentence))
+        #question -> tokens -> ids -> pad to max question length
+        question_ = question_padding_pipeline(text_pipeline(question))
+
+        sentence_list.append(sentence_)
+        question_list.append(question_)
+        
+    # convert to tensor
+    sentence_list = torch.tensor(sentence_list, dtype=torch.int64).reshape((max_sentence_len, BATCH_SIZE))
+    question_list = torch.tensor(question_list, dtype=torch.int64).reshape((max_question_len, BATCH_SIZE))
+    return sentence_list.to(device), question_list.to(device)
+
 def trainIters(encoder, decoder, training_data, num_epochs, learning_rate=0.01):
     print_every=1
     plot_every=100
@@ -32,12 +65,12 @@ def trainIters(encoder, decoder, training_data, num_epochs, learning_rate=0.01):
     criterion = nn.NLLLoss()
 
     for epoch in range(num_epochs):
-        for i in range(len(training_data)):
-            training_pair = training_data[i]
-            input_tensor = sent2tensor(training_pair[0])
-            target_tensor = sent2tensor(training_pair[1])
+        # for i in range(len(training_data)):
+        #     training_pair = training_data[i]
+        #     input_tensor = sent2tensor(training_pair[0])
+        #     target_tensor = sent2tensor(training_pair[1])
          
-        # for _, (input_tensor, target_tensor) in enumerate(training_data):
+        for _, (input_tensor, target_tensor) in enumerate(training_data):
             loss = train(input_tensor, target_tensor, encoder,
                         decoder, encoder_optimizer, decoder_optimizer, criterion)
             print_loss_total += loss
@@ -66,31 +99,17 @@ def sent2tensor(sentence, word2idx=WORD2IDX):
     idx_vector = sent2idx(sentence)
     return torch.tensor(idx_vector, dtype=torch.long, device=device).view(-1, 1)
 
-def collate_batch(batch):
-    data_list, label_list = [], []
-
-    #for each element in the batch 
-    seq_len = 5
-    for ele in batch:
-      data_list.append(sent2idx(ele[0][:seq_len]))
-      label_list.append(sent2idx(ele[1][:seq_len]))
-         
-    
-    data_list = torch.Tensor(data_list)
-    label_list = torch.Tensor(label_list).view(-1,1)
-    return data_list, label_list
-
 if __name__=="__main__":
     n_words = len(WORD2IDX)
     hidden_size = 50
     
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
-    df = pd.read_csv(DATA_DIR+"qg_train.csv")[['sentence', 'question']][:25]
-    # train_dataloader = DataLoader(df.values, batch_size=BATCH_SIZE,
-    #                           shuffle=True, collate_fn=collate_batch)
+    df = pd.read_csv(DATA_DIR+"qg_train.csv")[['sentence', 'question']][:10]
+    train_dataloader = DataLoader(df.values, batch_size=4,
+                              shuffle=True, collate_fn=collate_batch)
     
-    train_dataloader = df.values
+    # train_dataloader = df.values
     
     encoder1 = EncoderRNN(n_words, hidden_size, WORD2IDX).to(device)
     attn_decoder1 = AttnDecoderRNN(hidden_size, n_words, WORD2IDX, dropout_p=0.1).to(device)
