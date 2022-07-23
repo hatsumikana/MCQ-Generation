@@ -1,14 +1,22 @@
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
-plt.switch_backend('agg')
+# plt.switch_backend('agg')
 
+import random
+
+import json
+from nltk.tokenize import word_tokenize
 # Define constant values
 teacher_forcing_ratio = 0.5
 SOS_token = 0
 EOS_token = 1
 MAX_LENGTH = 15
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+DATA_DIR = "../data/"
+with open(DATA_DIR+"vocab.json", 'r') as f:
+    WORD2IDX = json.load(f)
 
 def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, max_length=MAX_LENGTH):
     encoder_hidden = encoder.initHidden()
@@ -19,12 +27,12 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, deco
     input_length = input_tensor.size(0)
     target_length = target_tensor.size(0)
 
+    # TODO: check if bidirectional then multiply hidden_size by 1 or 2
     encoder_outputs = torch.zeros(max_length, encoder.hidden_size, device=device)
 
     loss = 0
-
-    print(input_tensor[0])
-    for ei in range(input_length):
+    # for ei in range(input_length):
+    for ei in range(max_length):
         encoder_output, encoder_hidden = encoder(input_tensor[ei], encoder_hidden)
         encoder_outputs[ei] = encoder_output[0, 0]
 
@@ -64,16 +72,18 @@ def showPlot(points):
     plt.plot(points)
 
 
-def evaluate(encoder, decoder, sentence, max_length=MAX_LENGTH):
+def evaluate(encoder, decoder, sentence, word2idx=WORD2IDX, max_length=MAX_LENGTH):
+    idx2word = {idx: word for (word, idx) in word2idx.items()}
     with torch.no_grad():
-        input_tensor = tensorFromSentence(input_lang, sentence)
+        input_tensor = sent2tensor(sentence, word2idx)
         input_length = input_tensor.size()[0]
         encoder_hidden = encoder.initHidden()
 
         encoder_outputs = torch.zeros(
             max_length, encoder.hidden_size, device=device)
 
-        for ei in range(input_length):
+        # for ei in range(input_length):
+        for ei in range(max_length):
             encoder_output, encoder_hidden = encoder(input_tensor[ei],
                                                      encoder_hidden)
             encoder_outputs[ei] += encoder_output[0, 0]
@@ -94,7 +104,7 @@ def evaluate(encoder, decoder, sentence, max_length=MAX_LENGTH):
                 decoded_words.append('<EOS>')
                 break
             else:
-                decoded_words.append(output_lang.index2word[topi.item()])
+                decoded_words.append(idx2word[topi.item()])
 
             decoder_input = topi.squeeze().detach()
 
@@ -116,12 +126,12 @@ def showAttention(input_sentence, output_words, attentions):
     plt.show()
 
 
-def evaluateAndShowAttention(input_sentence):
+def evaluateAndShowAttention(encoder, decoder, input_sentence):
     output_words, attentions = evaluate(
-        encoder1, attn_decoder1, input_sentence)
+        encoder, decoder, input_sentence)
     print('input =', input_sentence)
     print('output =', ' '.join(output_words))
-    showAttention(input_sentence, output_words, attentions)
+    # showAttention(input_sentence, output_words, attentions)
 
 
 def indexesFromSentence(lang, sentence):
@@ -138,3 +148,13 @@ def tensorsFromPair(pair):
     input_tensor = tensorFromSentence(input_lang, pair[0])
     target_tensor = tensorFromSentence(output_lang, pair[1])
     return (input_tensor, target_tensor)
+
+def sent2idx(sentence, word2idx=WORD2IDX):
+    idx_vector = [word2idx['SOS']]
+    idx_vector += [word2idx.get(word.lower(),86267) for word in word_tokenize(sentence)]
+    idx_vector.append(word2idx['EOS'])
+    return idx_vector
+    
+def sent2tensor(sentence, word2idx=WORD2IDX):
+    idx_vector = sent2idx(sentence)
+    return torch.tensor(idx_vector, dtype=torch.long, device=device).view(-1, 1)

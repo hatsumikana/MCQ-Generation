@@ -18,19 +18,20 @@ class EncoderRNN(nn.Module):
         # TODO: use pretrained weights
         # self.embedding = nn.Embedding(input_size, hidden_size)
         self.glove_weights = self.load_glove_embeddings(glove_path, word2idx)
-        self.embedding = nn.Embedding.from_pretrained(self.glove_weights)
+        self.embedding = nn.Embedding.from_pretrained(self.glove_weights, padding_idx=86267)
         # TODO: change to bidirectional LSTM
         # self.gru = nn.GRU(hidden_size, hidden_size)
-        self.bilstm = nn.LSTM(self.hidden_size, self.hidden_size, bidirectional=True)
+        self.bilstm = nn.LSTM(self.hidden_size, self.hidden_size, bidirectional=False, batch_first=True)
 
     def forward(self, input, hidden):
         embedded = self.embedding(input).view(1, 1, -1)
-        output = embedded
-        output, hidden = self.bilstm(output, hidden)
+        output, hidden = self.bilstm(embedded, hidden)
         return output, hidden
 
     def initHidden(self):
-        return torch.zeros(1, 1, self.hidden_size, device=device)
+        # return tuple (h_n, c_n)
+        init_tensor = torch.zeros(1, 1, self.hidden_size, device=device)
+        return (init_tensor, init_tensor)
     
     def load_glove_embeddings(self, path, word2idx, embedding_dim=50):
         with open(path, encoding='utf-8') as f:
@@ -56,26 +57,30 @@ class AttnDecoderRNN(nn.Module):
 
         self.glove_weights = self.load_glove_embeddings(glove_path, word2idx)
         self.embedding = nn.Embedding.from_pretrained(self.glove_weights)
-        self.attn = nn.Linear(self.hidden_size * 2, self.max_length)
+        self.attn = nn.Linear(self.hidden_size*2, self.max_length)
         self.attn_combine = nn.Linear(self.hidden_size * 2, self.hidden_size)
         self.dropout = nn.Dropout(self.dropout_p)
         # TODO: change to LSTM
         # self.gru = nn.GRU(self.hidden_size, self.hidden_size)
-        self.lstm = nn.LSTM(self.hidden_size, self.hidden_size, bidirectional=False)
+        self.lstm = nn.LSTM(self.hidden_size, self.hidden_size, bidirectional=False, batch_first=True)
         self.out = nn.Linear(self.hidden_size, self.output_size)
 
     def forward(self, input, hidden, encoder_outputs):
         embedded = self.embedding(input).view(1, 1, -1)
         embedded = self.dropout(embedded)
 
-        attn_weights = F.softmax(self.attn(torch.cat((embedded[0], hidden[0]), 1)), 
+        h_n = hidden[0][0]
+        attn_weights = F.softmax(self.attn(torch.cat((embedded[0], h_n), dim=-1)), 
                                  dim=1)
+        # print(attn_weights.shape)
+        # print(attn_weights.unsqueeze(0).shape)
+        # print(encoder_outputs.unsqueeze(0).shape)
         attn_applied = torch.bmm(attn_weights.unsqueeze(0),
                                  encoder_outputs.unsqueeze(0))
-
+        # print(attn_applied.shape)
         output = torch.cat((embedded[0], attn_applied[0]), 1)
         output = self.attn_combine(output).unsqueeze(0)
-
+        # print(output.shape)
         output = F.relu(output)
         output, hidden = self.lstm(output, hidden)
 

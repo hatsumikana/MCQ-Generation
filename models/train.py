@@ -19,7 +19,7 @@ with open(DATA_DIR+"vocab.json", 'r') as f:
     WORD2IDX = json.load(f)
     
 def trainIters(encoder, decoder, training_data, num_epochs, learning_rate=0.01):
-    print_every=1000
+    print_every=1
     plot_every=100
     
     plot_losses = []
@@ -36,6 +36,7 @@ def trainIters(encoder, decoder, training_data, num_epochs, learning_rate=0.01):
             training_pair = training_data[i]
             input_tensor = sent2tensor(training_pair[0])
             target_tensor = sent2tensor(training_pair[1])
+         
         # for _, (input_tensor, target_tensor) in enumerate(training_data):
             loss = train(input_tensor, target_tensor, encoder,
                         decoder, encoder_optimizer, decoder_optimizer, criterion)
@@ -55,8 +56,9 @@ def trainIters(encoder, decoder, training_data, num_epochs, learning_rate=0.01):
     showPlot(plot_losses)
 
 def sent2idx(sentence, word2idx=WORD2IDX):
+    tokens = word_tokenize(sentence)[:13]
     idx_vector = [word2idx['SOS']]
-    idx_vector += [word2idx.get(word.lower(),86267) for word in word_tokenize(sentence)]
+    idx_vector += [word2idx.get(word.lower(),86267) for word in tokens]
     idx_vector.append(word2idx['EOS'])
     return idx_vector
     
@@ -80,11 +82,11 @@ def collate_batch(batch):
 
 if __name__=="__main__":
     n_words = len(WORD2IDX)
-    hidden_size = 256
+    hidden_size = 50
     
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
-    df = pd.read_csv(DATA_DIR+"qg_train.csv")[['sentence', 'question']][:10]
+    df = pd.read_csv(DATA_DIR+"qg_train.csv")[['sentence', 'question']][:25]
     # train_dataloader = DataLoader(df.values, batch_size=BATCH_SIZE,
     #                           shuffle=True, collate_fn=collate_batch)
     
@@ -93,5 +95,7 @@ if __name__=="__main__":
     encoder1 = EncoderRNN(n_words, hidden_size, WORD2IDX).to(device)
     attn_decoder1 = AttnDecoderRNN(hidden_size, n_words, WORD2IDX, dropout_p=0.1).to(device)
 
-    trainIters(encoder1, attn_decoder1, train_dataloader, 10)
-    evaluateAndShowAttention(encoder1, attn_decoder1, "The pound-force has a metric counterpart, less commonly used than the newton: the kilogram-force (kgf) (sometimes kilopond), is the force exerted by standard gravity on one kilogram of mass") 
+    trainIters(encoder1, attn_decoder1, train_dataloader, num_epochs=10)
+    
+    evalution_input = "Born and raised in Houston, Texas, she performed in various singing and dancing competitions as a child, and rose to fame in the late 1990s as lead singer of R&B girl-group Destiny's Child."
+    evaluateAndShowAttention(encoder1, attn_decoder1, evalution_input)
