@@ -19,13 +19,30 @@ class EncoderRNN(nn.Module):
         self.embedding = nn.Embedding.from_pretrained(self.glove_weights, padding_idx=word2idx["<pad>"])
         self.lstm = nn.LSTM(self.hidden_size, self.hidden_size, bidirectional=False, batch_first=True)
 
-    def forward(self, input, hidden):
+    def forward(self, input, input_length, hidden):
         # print(input.shape, hidden[0].shape)
         # print(self.embedding(input).shape)
         
-        embedded = self.embedding(input)
-        output, hidden = self.lstm(embedded)
+        # basic implementation
+        # embedded = self.embedding(input)
+        # output, hidden = self.lstm(embedded)
         
+        # with pack_padded_sequence
+        batch_size, max_seq_len = input.size(0), input.size(-1)
+        embedded = self.embedding(input)
+        # print(input.shape, embedded.shape, input_length.shape)
+        #need to explicitly put lengths on cpu!
+        packed_embedded = nn.utils.rnn.pack_padded_sequence(embedded, input_length.cpu().numpy(), batch_first=True, enforce_sorted=False)     
+        packed_output, hidden = self.lstm(packed_embedded)                
+        #packed_output is a packed sequence containing all hidden states
+        #hidden is now from the final non-padded element in the batch
+        output, _ = nn.utils.rnn.pad_packed_sequence(packed_output, batch_first=True) 
+        #output is now a non-packed sequence, all hidden states obtained when the input is a pad token are all zeros
+        # ISSUE --> max_seq_len in output is not original padded length
+        if output.size(1)<max_seq_len:
+            dummy_tensor = torch.zeros(batch_size, max_seq_len-output.size(1), self.hidden_size)
+            # print(output.shape, dummy_tensor.shape)
+            output = torch.cat([output, dummy_tensor], 1)
         return output, hidden
 
     def initHidden(self):
@@ -63,16 +80,21 @@ class AttnDecoderRNN(nn.Module):
         self.lstm = nn.LSTM(self.hidden_size, self.hidden_size, bidirectional=False)
         self.out = nn.Linear(self.hidden_size, self.output_size)
 
-    def forward(self, input, hidden, encoder_outputs):
+    def forward(self, input, hidden, encoder_outputs, mask):
         embedded = self.embedding(input).view(1, 1, -1)
-        embedded = self.dropout(embedded)
+        embedded = self.dropout(embedded) # [1, 1, embed_dim]
         # print(input, embedded)
         # print(input.shape, embedded.shape, encoder_outputs.shape, hidden[0].shape)
         
+        # encoder_outputs --> [enc_input_len, embed_dim]
+        # encoder_hidden --> tuple with [1, 1, embed_dim]
+        
         h_n = hidden[0]
-        attn_weights = F.softmax(self.attn(torch.cat((embedded[0], h_n[0]), dim=-1)), 
-                                 dim=1)
-        # print(attn_weights.shape)
+        # print(embedded[0].shape, h_n[0].shape)
+        attn = self.attn(torch.cat((embedded[0], h_n[0]), dim=-1))  # [1, enc_input_len]
+        attn = attn.masked_fill(mask == 0, -1e10)
+        attn_weights = F.softmax(attn, dim=1)
+        # print(attn.shape, attn_weights.shape)
         # print(attn_weights.unsqueeze(0).shape)
         # print(encoder_outputs.unsqueeze(0).shape)
         attn_applied = torch.bmm(attn_weights.unsqueeze(0),
