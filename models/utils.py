@@ -18,6 +18,13 @@ DATA_DIR = "../data/"
 with open(DATA_DIR+"vocab.json", 'r') as f:
     WORD2IDX = json.load(f)
     
+max_sentence_len = 60
+#tokenization function
+text_pipeline = lambda x: [WORD2IDX.get(token, WORD2IDX['<unk>']) for token in word_tokenize(x)]
+
+#padding function
+sentence_padding_pipeline = lambda tokens: tokens[:max_sentence_len]+[WORD2IDX['<pad>'] for p in range(max_sentence_len - len(tokens))]
+question_padding_pipeline = lambda tokens: tokens[:max_question_len]+[WORD2IDX['<pad>'] for p in range(max_question_len - len(tokens))]
 
 def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, max_length=MAX_LENGTH):
     encoder_hidden = encoder.initHidden()
@@ -25,46 +32,51 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, deco
     encoder_optimizer.zero_grad()
     decoder_optimizer.zero_grad()
 
-    input_length = input_tensor.size(0)
-    target_length = target_tensor.size(0)
-
-    # TODO: check if bidirectional then multiply hidden_size by 1 or 2
-    encoder_outputs = torch.zeros(max_length, encoder.hidden_size, device=device)
-
+    batch_size = input_tensor.size(0)
+    input_length = input_tensor.size(1)
+    target_length = target_tensor.size(1)
+    
+    # input_tensor = input_tensor.view(input_length, batch_size)
+    target_tensor = target_tensor.view(batch_size, target_length, 1)
+    
     loss = 0
-    # for ei in range(input_length):
-    for ei in range(max_length):
-        encoder_output, encoder_hidden = encoder(input_tensor[ei], encoder_hidden)
-        encoder_outputs[ei] = encoder_output[0, 0]
-
-    decoder_input = torch.tensor([[SOS_token]], device=device)
-
-    decoder_hidden = encoder_hidden
+    encoder_outputs, encoder_hidden = encoder(input_tensor, encoder_hidden)
+    # print(encoder_outputs.shape, encoder_hidden[0].shape)
+    decoder_input = torch.tensor([SOS_token], device=device)
 
     use_teacher_forcing = True if random.random() < teacher_forcing_ratio else False
-
-    if use_teacher_forcing:
-        # Teacher forcing: Feed the target as the next input
-        for di in range(target_length):
-            decoder_output, decoder_hidden, decoder_attention = decoder(decoder_input, decoder_hidden, encoder_outputs)
-            loss += criterion(decoder_output, target_tensor[di])
-            decoder_input = target_tensor[di]  # Teacher forcing
-    else:
-        # Without teacher forcing: use its own predictions as the next input
-        for di in range(target_length):
-            decoder_output, decoder_hidden, decoder_attention = decoder(decoder_input, decoder_hidden, encoder_outputs)
-            topv, topi = decoder_output.topk(1)
-            decoder_input = topi.squeeze().detach()  # detach from history as input
-
-            loss += criterion(decoder_output, target_tensor[di])
-            if decoder_input.item() == EOS_token:
-                break
+    for bi in range(batch_size):
+        encoder_hidden_ = (encoder_hidden[0].permute(1,0,2)[bi], encoder_hidden[1].permute(1,0,2)[bi])
+        encoder_outputs_ = encoder_outputs[bi]
+        
+        decoder_hidden = (encoder_hidden_[0].view(1, 1, -1), encoder_hidden_[1].view(1, 1, -1))
+        
+        if use_teacher_forcing:
+            # Teacher forcing: Feed the target as the next input
+            for di in range(target_length):
+                decoder_output, decoder_hidden, decoder_attention = decoder(decoder_input, decoder_hidden, encoder_outputs_)
+                # print(decoder_output.shape, target_tensor[bi].shape)
+                loss += criterion(decoder_output, target_tensor[bi][di])
+                decoder_input = target_tensor[bi][di]  # Teacher forcing
+                # print("Decoder input", decoder_input.shape)
+        else:
+            # Without teacher forcing: use its own predictions as the next input
+            for di in range(target_length):
+                decoder_output, decoder_hidden, decoder_attention = decoder(decoder_input, decoder_hidden, encoder_outputs_)
+                topv, topi = decoder_output.topk(1)
+                decoder_input = topi.squeeze().detach()  # detach from history as input
+                # print(decoder_output.shape, target_tensor[bi].shape)
+                # print("Decoder input", decoder_input.shape)
+                loss += criterion(decoder_output, target_tensor[bi][di])
+                if decoder_input.item() == EOS_token:
+                    break
+                    
 
     loss.backward()
     encoder_optimizer.step()
     decoder_optimizer.step()
 
-    return loss.item() / target_length
+    return loss.item() / (batch_size*target_length)
 
 
 def showPlot(points):
@@ -76,25 +88,32 @@ def showPlot(points):
 def evaluate(encoder, decoder, sentence, word2idx=WORD2IDX, max_length=MAX_LENGTH):
     idx2word = {idx: word for (word, idx) in word2idx.items()}
     with torch.no_grad():
-        input_tensor = sent2tensor(sentence, word2idx)
+        sentence_ = sentence_padding_pipeline(text_pipeline(sentence))
+        input_tensor = torch.tensor(sentence_, dtype=torch.int64).reshape((max_sentence_len, 1))
         input_length = input_tensor.size()[0]
         encoder_hidden = encoder.initHidden()
 
-        encoder_outputs = torch.zeros(
-            max_length, encoder.hidden_size, device=device)
+        # encoder_outputs = torch.zeros(
+        #     input_length, encoder.hidden_size, device=device)
 
         # for ei in range(input_length):
-        for ei in range(max_length):
-            encoder_output, encoder_hidden = encoder(input_tensor[ei],
-                                                     encoder_hidden)
-            encoder_outputs[ei] += encoder_output[0, 0]
+        # # for ei in range(max_length):
+        #     encoder_output, encoder_hidden = encoder(input_tensor[ei],
+        #                                              encoder_hidden)
+        #     encoder_outputs[ei] += encoder_output[0, 0]
 
-        decoder_input = torch.tensor([[SOS_token]], device=device)  # SOS
-
-        decoder_hidden = encoder_hidden
+        encoder_outputs, encoder_hidden = encoder(input_tensor, encoder_hidden)
+        encoder_outputs = encoder_outputs.permute(1, 0, 2)[0]
+        encoder_hidden = (encoder_hidden[0].permute(1, 0, 2)[0], encoder_hidden[1].permute(1, 0, 2)[0])
+        
+        decoder_input = torch.tensor([SOS_token], device=device) 
+        # print(decoder_input.shape)
+        # decoder_hidden = encoder_hidden
+        decoder_hidden = (encoder_hidden[0].view(1, 1, -1), encoder_hidden[1].view(1, 1, -1))
 
         decoded_words = []
-        decoder_attentions = torch.zeros(max_length, max_length)
+        # decoder_attentions = torch.zeros(max_length, max_length)
+        decoder_attentions = torch.zeros(max_sentence_len, max_sentence_len)
 
         for di in range(max_length):
             decoder_output, decoder_hidden, decoder_attention = decoder(
@@ -108,6 +127,7 @@ def evaluate(encoder, decoder, sentence, word2idx=WORD2IDX, max_length=MAX_LENGT
                 decoded_words.append(idx2word[topi.item()])
 
             decoder_input = topi.squeeze().detach()
+            # print("[E] Decoder input", decoder_input, decoder_input.shape)
 
         return decoded_words, decoder_attentions[:di + 1]
 

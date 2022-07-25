@@ -15,17 +15,17 @@ class EncoderRNN(nn.Module):
         self.hidden_size = hidden_size
         self.word2idx = word2idx
 
-        # TODO: use pretrained weights
-        # self.embedding = nn.Embedding(input_size, hidden_size)
         self.glove_weights = self.load_glove_embeddings(glove_path, word2idx)
         self.embedding = nn.Embedding.from_pretrained(self.glove_weights, padding_idx=word2idx["<pad>"])
-        # TODO: change to bidirectional LSTM
-        # self.gru = nn.GRU(hidden_size, hidden_size)
         self.lstm = nn.LSTM(self.hidden_size, self.hidden_size, bidirectional=False, batch_first=True)
 
     def forward(self, input, hidden):
-        embedded = self.embedding(input).view(1, 1, -1)
-        output, hidden = self.lstm(embedded, hidden)
+        # print(input.shape, hidden[0].shape)
+        # print(self.embedding(input).shape)
+        
+        embedded = self.embedding(input)
+        output, hidden = self.lstm(embedded)
+        
         return output, hidden
 
     def initHidden(self):
@@ -60,17 +60,17 @@ class AttnDecoderRNN(nn.Module):
         self.attn = nn.Linear(self.hidden_size*2, self.max_length)
         self.attn_combine = nn.Linear(self.hidden_size * 2, self.hidden_size)
         self.dropout = nn.Dropout(self.dropout_p)
-        # TODO: change to LSTM
-        # self.gru = nn.GRU(self.hidden_size, self.hidden_size)
-        self.lstm = nn.LSTM(self.hidden_size, self.hidden_size, bidirectional=False, batch_first=True)
+        self.lstm = nn.LSTM(self.hidden_size, self.hidden_size, bidirectional=False)
         self.out = nn.Linear(self.hidden_size, self.output_size)
 
     def forward(self, input, hidden, encoder_outputs):
         embedded = self.embedding(input).view(1, 1, -1)
         embedded = self.dropout(embedded)
-
-        h_n = hidden[0][0]
-        attn_weights = F.softmax(self.attn(torch.cat((embedded[0], h_n), dim=-1)), 
+        # print(input, embedded)
+        # print(input.shape, embedded.shape, encoder_outputs.shape, hidden[0].shape)
+        
+        h_n = hidden[0]
+        attn_weights = F.softmax(self.attn(torch.cat((embedded[0], h_n[0]), dim=-1)), 
                                  dim=1)
         # print(attn_weights.shape)
         # print(attn_weights.unsqueeze(0).shape)
