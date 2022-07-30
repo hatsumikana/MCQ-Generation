@@ -10,7 +10,7 @@ import json
 from nltk.tokenize import word_tokenize
 
 from tqdm import tqdm
-BATCH_SIZE=4
+BATCH_SIZE=128
 
 from utils import *
 from seq2seq import EncoderRNN, AttnDecoderRNN
@@ -108,9 +108,11 @@ if __name__=="__main__":
     hidden_size = 50
     
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+#     device='cpu'
     print(device)
     
-    df = pd.read_csv(DATA_DIR+"qg_train.csv")[['sentence', 'question']][:100]
+    df = pd.read_csv(DATA_DIR+"qg_train.csv")[['sentence', 'question']][:128]
+    print(len(df))
     train_dataloader = DataLoader(df.values, batch_size=BATCH_SIZE,
                               shuffle=True, collate_fn=collate_batch)
     
@@ -118,7 +120,7 @@ if __name__=="__main__":
     attn_decoder1 = AttnDecoderRNN(hidden_size, n_words, WORD2IDX, dropout_p=0.1, max_length=max_sentence_len).to(device)
 
     print("-- Training --")
-    trainIters(encoder1, attn_decoder1, train_dataloader, num_epochs=1)
+    trainIters(encoder1, attn_decoder1, train_dataloader, num_epochs=100)
 
     evalution_input = "Born and raised in Houston Texas she performed in various singing and dancing competitions as a child and rose to fame in the late 1990s as lead singer of R&B girl group Destiny's Child."
     evaluateAndShowAttention(encoder1, attn_decoder1, evalution_input)

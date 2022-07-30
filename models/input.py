@@ -29,7 +29,7 @@ class QuestionSentenceDataset:
                 self.word2freq[word] += 1
 
 if __name__=="__main__":
-    DATA_DIR = '../data/'
+    DATA_DIR = 'data/'
     df = pd.read_csv(DATA_DIR+"qg_train.csv")
     
     train = QuestionSentenceDataset()

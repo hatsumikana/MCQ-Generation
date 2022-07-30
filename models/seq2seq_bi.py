@@ -5,6 +5,7 @@ import torch.nn.functional as F
 import numpy as np
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu') 
+# device = 'cpu'
 glove_path = 'data/glove.6B.50d.txt'
 
 MAX_LENGTH = 15
@@ -17,7 +18,11 @@ class EncoderRNN(nn.Module):
 
         self.glove_weights = self.load_glove_embeddings(glove_path, word2idx)
         self.embedding = nn.Embedding.from_pretrained(self.glove_weights, padding_idx=word2idx["<pad>"])
-        self.lstm = nn.LSTM(self.hidden_size, self.hidden_size, bidirectional=False, batch_first=True)
+        self.embedding.weight.requires_grad = True
+        self.lstm = nn.LSTM(self.hidden_size, self.hidden_size, bidirectional=True, batch_first=True)
+        self.W_h = nn.Linear(2*self.hidden_size, self.hidden_size, bias=False)
+        self.W_c = nn.Linear(2*self.hidden_size, self.hidden_size, bias=False)
+        self.W_o = nn.Linear(2*self.hidden_size, self.hidden_size, bias=False)
 
     def forward(self, input, input_length, hidden):
         # print(input.shape, hidden[0].shape)
@@ -33,14 +38,23 @@ class EncoderRNN(nn.Module):
         # print(input.shape, embedded.shape, input_length.shape)
         #need to explicitly put lengths on cpu!
         packed_embedded = nn.utils.rnn.pack_padded_sequence(embedded, input_length.cpu().numpy(), batch_first=True, enforce_sorted=False)     
-        packed_output, hidden = self.lstm(packed_embedded)                
+        packed_output, (last_hidden, last_cell) = self.lstm(packed_embedded)
+        last_hidden = torch.cat((last_hidden[0], last_hidden[1]), dim=1) 
+        last_cell = torch.cat((last_cell[0], last_cell[1]), dim=1)  
+        hidden = (self.W_h(last_hidden)[None, :], self.W_c(last_cell)[None, :])   
+        # final_state = hidden[0].view(1, 2, batch_size, self.hidden_size)[-1] 
+        # print(hidden.shape)
+        # print(final_state[0].shape)
+        # h_1, h_2 = final_state[0], final_state[1]      
+        # hidden = torch.cat((h_1, h_2), 1) 
         #packed_output is a packed sequence containing all hidden states
         #hidden is now from the final non-padded element in the batch
         output, _ = nn.utils.rnn.pad_packed_sequence(packed_output, batch_first=True) 
+        output = self.W_o(output)
         #output is now a non-packed sequence, all hidden states obtained when the input is a pad token are all zeros
         # ISSUE --> max_seq_len in output is not original padded length
         if output.size(1)<max_seq_len:
-            dummy_tensor = torch.zeros(batch_size, max_seq_len-output.size(1), self.hidden_size)
+            dummy_tensor = torch.zeros(batch_size, max_seq_len-output.size(1), self.hidden_size).to(device)
             # print(output.shape, dummy_tensor.shape)
             output = torch.cat([output, dummy_tensor], 1)
         return output, hidden
