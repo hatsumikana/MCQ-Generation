@@ -20,7 +20,7 @@ DATA_DIR = "data/"
 with open(DATA_DIR+"vocab.json", 'r') as f:
     WORD2IDX = json.load(f)
     
-max_sentence_len = 60
+max_sentence_len = 45
 #tokenization function
 text_pipeline = lambda x: [WORD2IDX.get(token.lower(), WORD2IDX['<unk>']) for token in word_tokenize(x)]
 
@@ -160,7 +160,7 @@ def evaluateAndShowAttention(encoder, decoder, input_sentence):
     output_words, attentions = evaluate(encoder, decoder, input_sentence)
     print('input =', input_sentence)
     print('output =', ' '.join(output_words))
-    # showAttention(input_sentence, output_words, attentions)
+    showAttention(input_sentence, output_words, attentions)
 
 
 def indexesFromSentence(lang, sentence):
