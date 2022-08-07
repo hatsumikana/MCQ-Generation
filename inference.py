@@ -299,6 +299,7 @@ def distractor_generator(answer):
 
     """
     Takes word.phrase as an input and generates similar words/phrases aka distractors
+    This function ranks them using cross enoder to get better distractors
 
     Parameters
     ----------
