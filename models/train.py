@@ -28,7 +28,7 @@ with open(DATA_DIR+"vocab.json", 'r') as f:
 
 #defined maximum sentence and question length
 max_question_len = 15
-max_sentence_len = 45
+max_sentence_len = 60
 
 # special token ids
 SOS_id = WORD2IDX.get('<SOS>')

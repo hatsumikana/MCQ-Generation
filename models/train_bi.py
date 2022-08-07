@@ -21,7 +21,7 @@ with open(DATA_DIR+"vocab.json", 'r') as f:
 
 #defined maximum sentence and question length
 max_question_len = 15
-max_sentence_len = 45
+max_sentence_len = 60
 
 #tokenization function
 text_pipeline = lambda x: [WORD2IDX.get(token.lower(), WORD2IDX['<unk>']) for token in word_tokenize(x)]

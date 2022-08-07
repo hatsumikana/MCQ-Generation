@@ -20,7 +20,7 @@ DATA_DIR = "data/"
 with open(DATA_DIR+"vocab.json", 'r') as f:
     WORD2IDX = json.load(f)
     
-max_sentence_len = 45
+max_sentence_len = 60
 #tokenization function
 text_pipeline = lambda x: [WORD2IDX.get(token.lower(), WORD2IDX['<unk>']) for token in word_tokenize(x)]
 

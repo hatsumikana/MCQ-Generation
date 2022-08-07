@@ -1,5 +1,6 @@
 sentence_transformers
 torch
+nltk
 pytextrank
 transformers
 pandas
@@ -7,3 +8,5 @@ streamlit
 streamlit_book
 streamlit_tags
 spacy
+sense2vec
+bs4
