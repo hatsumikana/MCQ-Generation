@@ -13,7 +13,7 @@ from tqdm import tqdm
 BATCH_SIZE=128
 
 from utils import *
-from seq2seq import EncoderRNN, AttnDecoderRNN
+from seq2seq_bi import EncoderRNN, AttnDecoderRNN
 
 DATA_DIR = "data/"
 with open(DATA_DIR+"vocab.json", 'r') as f:
@@ -21,7 +21,7 @@ with open(DATA_DIR+"vocab.json", 'r') as f:
 
 #defined maximum sentence and question length
 max_question_len = 15
-max_sentence_len = 60
+max_sentence_len = 45
 
 #tokenization function
 text_pipeline = lambda x: [WORD2IDX.get(token.lower(), WORD2IDX['<unk>']) for token in word_tokenize(x)]
