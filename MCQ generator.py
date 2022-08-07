@@ -12,7 +12,7 @@ import time
 with open('style.css') as f:
     st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
 
-st.session_state
+# st.session_state
 # Initialize session state variables 
 if "num_qns" not in st.session_state:
     st.session_state["num_qns"] = 0
@@ -28,9 +28,6 @@ if "submitted" not in st.session_state:
 
 if "submitted_disabled" not in st.session_state:
     st.session_state["submitted_disabled"] = False
-
-if "review_quiz" not in st.session_state:
-    st.session_state["review_quiz"] = False
 
 ################################
 # Front-end to accept inputs
@@ -133,9 +130,6 @@ if st.session_state["generated"]:
 def submit_cb():
     st.session_state.submitted_disabled = True
 
-def review_cb():
-    st.session_state.submitted = False
-
 if st.session_state.disabled_count//4 == st.session_state.num_qns and st.session_state.disabled_count>0 and st.session_state.num_qns>0:
     submitted = st.button("Submit", on_click= submit_cb, disabled=st.session_state.submitted_disabled)
     if submitted:
@@ -148,15 +142,9 @@ def save_to_excel():
         temp_ls.append(ans_ls[i])
         combined_ls.append(temp_ls)
     df = pd.DataFrame(combined_ls, columns=["choice1", "choice2", "choice3", "choice4", "answer"])
-    df.to_csv(f"{quiz_title}.csv")
+    df.to_csv(f"{quiz_title}.csv", index=False)
 
 if st.session_state.submitted:
     save_to_excel()
-    st.write("MCQ quiz has been generated!")
-    st.balloons()
-    st.session_state.review_quiz = True
-
-if st.session_state.review_quiz:
-    review_quiz = st.button("Review Quiz", on_click=review_cb)
-
-
+    st.subheader("MCQ quiz has been generated! Go to quiz page to review quiz")
+    st.session_state.clear()
