@@ -47,7 +47,7 @@ def preprocess_sent(sentence):
     return " ".join(res)
 
 #tokenization function
-text_pipeline = lambda x: [WORD2IDX.get(token.lower(), unk_id) for token in word_tokenize(x)]
+text_pipeline = lambda x: [WORD2IDX.get(token.lower(), unk_id) for token in word_tokenize(str(x))]
 
 #padding function
 sentence_padding_pipeline = lambda tokens: tokens[:max_sentence_len]+[WORD2IDX['<pad>'] for p in range(max_sentence_len - len(tokens))]
