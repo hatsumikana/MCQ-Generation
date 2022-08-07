@@ -1,0 +1,9 @@
+sentence_transformers
+torch
+pytextrank
+transformers
+pandas
+streamlit
+streamlit_book
+streamlit_tags
+spacy

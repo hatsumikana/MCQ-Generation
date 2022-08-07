@@ -24,6 +24,7 @@ if uploaded_file:
     st.title(filename)
     df = pd.read_csv(uploaded_file)
 
+    question_ls = df[["questions"]].values.tolist()
     choice_ls = df[["choice1", "choice2", "choice3", "choice4"]].values.tolist()
     ans_ls = df[["answer"]].values.tolist()
 
@@ -38,7 +39,8 @@ if uploaded_file:
     chosen_ans_ls = []
     for i in range(len(ans_ls)):        
         # Display text inputs with anwers from AI model as default
-        st.write(f"**Question {i}**")
+        st.write(f"**Question {i+1}:**")
+        st.write(f"{question_ls[i][0]}")
         answer = st.radio("", (choice_ls[i][0], choice_ls[i][1], choice_ls[i][2], choice_ls[i][3]))
         chosen_ans_ls.insert(i, answer)
     
@@ -55,12 +57,13 @@ if uploaded_file:
         st.session_state.submitted = True
 
     if st.session_state.submitted:
-        st.subheader(f"Score: {total_score/len(ans_ls)*100}")
+        st.subheader(f"Grade: {total_score/len(ans_ls)*100:.2f}/100")
         st.header("Answers")
 
         for i in range(len(ans_ls)):        
         # Display answers
-            st.write(f"**Question {i}**")
+            st.write(f"**Question {i+1}**")
+            st.write(f"{question_ls[i][0]}")
             st.write(f"Answer: {ans_ls[i][0]}")
 
     st.session_state.clear()

@@ -1,12 +1,14 @@
-from turtle import onclick
+
 import streamlit as st
-import streamlit_book as stb
-from streamlit_tags import st_tags
-import streamlit.components.v1 as components
-from nltk import sent_tokenize
-from copy import deepcopy
-import pandas as pd
-import time
+
+# Generate a spinner so that users know that the page is loading
+with st.spinner('Setting up webpage...'):
+    import streamlit_book as stb
+    from streamlit_tags import st_tags
+    import streamlit.components.v1 as components
+    from copy import deepcopy
+    import pandas as pd
+    from inference import MCQ_generator
 
 # Read CSS to style the UI
 with open('style.css') as f:
@@ -29,6 +31,15 @@ if "submitted" not in st.session_state:
 if "submitted_disabled" not in st.session_state:
     st.session_state["submitted_disabled"] = False
 
+if "questions" not in st.session_state:
+    st.session_state["questions"] = False
+
+if "all_ans" not in st.session_state:
+    st.session_state["all_ans"] = False
+
+if "correct_ans" not in st.session_state:
+    st.session_state["correct_ans"] = False
+
 ################################
 # Front-end to accept inputs
 ################################
@@ -37,7 +48,7 @@ st.write("**Enter Topics:**")
 topics = st_tags(
     label="",
     text='Press enter to add more',
-    value=['Artificial Intelligence'],
+    value=['Dialect'],
     suggestions=['neural networks', 'deep learning'],
     maxtags = 5,
     key='1')
@@ -49,20 +60,6 @@ num_qns = st.text_input("", max_chars=2, placeholder="Key in a number from 1-99"
 generated = st.button("Generate questions")
 
 ################################
-# AI pipeline
-################################
-
-passage = sent_tokenize(para)
-
-choice_ls = [["A", "B", "C", "D"],
-            ["B", "Z", "C", "D"],
-            ["E", "F", "C", "D"],
-            ["B", "G", "C", "D"]]
-
-ans_ls = [ "B", "C", "E", "G"]
-
-
-################################
 # Front-end to show questions based on AI pipeline 
 ################################
 
@@ -71,10 +68,22 @@ if num_qns:
     st.session_state["num_qns"] = int(num_qns)
 
 if generated:
-    with st.spinner('Generating quiz...'):
-        time.sleep(5)
-
     st.session_state["generated"] = generated
+
+    with st.spinner('Generating quiz...'):
+        # Use 1st topic only
+        questions, all_ans, correct_ans = MCQ_generator(para, topics[0] , k=st.session_state.num_qns)
+
+    if questions:
+        st.session_state.questions = questions
+
+    if all_ans:
+        st.session_state.all_ans = all_ans
+    
+    if correct_ans:
+        st.session_state.correct_ans = correct_ans
+
+if st.session_state.generated:
     for i in range(int(num_qns)):
         for j in range(1,5):
             if f"{i}{j}_disabled" not in st.session_state:
@@ -94,18 +103,19 @@ def ans_cb(choice1, choice2, choice3, choice4, button):
 wrong = "lightcoral"
 correct = "lightgreen"
 
-if st.session_state["generated"]:
+if st.session_state.generated:
 
     for i in range(int(num_qns)):        
         # Display text inputs with anwers from AI model as default    
-        st.write(f"{i+1}. {passage[i]}")
-        st.text_input("",value=choice_ls[i][0], key=f"{i}1", disabled=st.session_state[f"{i}1_disabled"]) 
-        st.text_input("",value=choice_ls[i][1], key=f"{i}2", disabled=st.session_state[f"{i}2_disabled"]) 
-        st.text_input("",value=choice_ls[i][2], key=f"{i}3", disabled=st.session_state[f"{i}3_disabled"]) 
-        st.text_input("",value=choice_ls[i][3], key=f"{i}4", disabled=st.session_state[f"{i}4_disabled"])
+        st.write(f"**Question {i+1}**")
+        st.write(f"{st.session_state.questions[i][0].capitalize()}")
+        st.text_input("",value=st.session_state.all_ans[i][0], key=f"{i}1", disabled=st.session_state[f"{i}1_disabled"]) 
+        st.text_input("",value=st.session_state.all_ans[i][1], key=f"{i}2", disabled=st.session_state[f"{i}2_disabled"]) 
+        st.text_input("",value=st.session_state.all_ans[i][2], key=f"{i}3", disabled=st.session_state[f"{i}3_disabled"]) 
+        st.text_input("",value=st.session_state.all_ans[i][3], key=f"{i}4", disabled=st.session_state[f"{i}4_disabled"])
         
         # Get index of correct answer
-        idx_correct = choice_ls[i].index(ans_ls[i])
+        idx_correct = st.session_state.all_ans[i].index(st.session_state.correct_ans[i])
         
         # Edit border colors 
         components.html(
@@ -137,11 +147,12 @@ if st.session_state.disabled_count//4 == st.session_state.num_qns and st.session
 
 def save_to_excel():
     combined_ls = []
-    for i, ls in enumerate(choice_ls):
+    for i, ls in enumerate(st.session_state.all_ans):
         temp_ls = deepcopy(ls)
-        temp_ls.append(ans_ls[i])
+        temp_ls.append(st.session_state.correct_ans[i])
+        temp_ls.insert(0, st.session_state.questions[i][0].capitalize())
         combined_ls.append(temp_ls)
-    df = pd.DataFrame(combined_ls, columns=["choice1", "choice2", "choice3", "choice4", "answer"])
+    df = pd.DataFrame(combined_ls, columns=["questions","choice1", "choice2", "choice3", "choice4", "answer"])
     df.to_csv(f"{quiz_title}.csv", index=False)
 
 if st.session_state.submitted:
