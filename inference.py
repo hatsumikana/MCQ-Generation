@@ -8,6 +8,13 @@ import pytextrank
 from transformers import T5Tokenizer, T5ForConditionalGeneration
 from QuestionGenerator import QuestionGenerator
 import random
+from collections import OrderedDict
+from sense2vec import Sense2Vec
+import requests
+from bs4 import BeautifulSoup
+from nltk.corpus import wordnet as wn
+import random
+import pandas as pd 
 nlp = spacy.load("en_core_web_lg")
 nlp.add_pipe("textrank")
 nltk.download('punkt')
@@ -181,6 +188,154 @@ def question_generator(sentence, answer):
     question = qg.generate(source_text=qg_input)
     return question
 
+
+def find_related_word_online(word):
+
+    """
+    Takes word/phrase as an input and generates similar words/phrases 
+    aka distractors using webscrapping from relatedwords.org website
+
+    Parameters
+    ----------
+    word : string
+        input words/phrases to generate distractors for
+
+    Returns
+    -------
+    words : list of strings
+        List of distractors for the given input
+          
+    """
+    r = requests.get("https://relatedwords.org/relatedto/" + word)
+    soup = BeautifulSoup(r.content, 'html5lib') # If this line causes an error, run 'pip install html5lib' or install html5lib
+    sent = soup.prettify()[soup.prettify().find('"terms"'):]
+    words = []
+    count = 0
+    while count != 20:
+        ind1 = sent.find('"word":')+8
+        ind2 = sent[ind1:].find('"')+ind1
+        words.append(sent[ind1:ind2])
+        sent = sent[ind2:]
+        count+=1
+    return words
+
+def sense2vec_get_words(word,s2v):
+    
+    """
+    Takes word/phrase as an input and generates similar words/phrases 
+    aka distractors using sense2vec
+
+    Parameters
+    ----------
+    word : string
+        input words/phrases to generate distractors for
+    s2v : Module instance from Sense2Vec class
+        Module instance from Sense2Vec class to generate distractor
+
+    Returns
+    -------
+    distractors : list of strings
+        List of distractors for the given input
+          
+    """
+    output = []
+    word = word.lower()
+    word = word.replace(" ", "_")
+
+    sense = s2v.get_best_sense(word)
+
+    if sense == None:
+        return find_related_word_online(word)
+
+    most_similar = s2v.most_similar(sense, n=20)
+ 
+    for each_word in most_similar:
+        append_word = each_word[0].split("|")[0].replace("_", " ").lower()
+        if append_word.lower() != word:
+            if sense.split("|")[1] == each_word[0].split("|")[1]:
+                output.append(append_word.title().lower())
+
+    out = list(OrderedDict.fromkeys(output))
+    return out
+
+def get_distractors(word):
+    
+    """
+    Takes word/phrase as an input and generates similar words/phrases aka distractors
+
+    Parameters
+    ----------
+    word : string
+        input words/phrases to generate distractors for
+
+    Returns
+    -------
+    distractors : list of strings
+        List of distractors for the given input
+          
+    """
+    distractors = []
+    if word.isnumeric():
+        if len(word) == 4:
+            # if 4-digit number --> assume it's a year --> add/subtract random number btw 1-10
+            randomlist = random.sample(range(-10, 10), 20)
+            for num in randomlist:
+                distractors.append(str(int(word) + num))
+            return distractors
+        else:
+            # else if other number --> add/subtract random number --> don't change +ve or -ve
+            randomlist = random.sample(range(-1000, 1000), 20)
+            for num in randomlist:
+                distractors.append(str(int(word) + num))
+            return distractors
+
+    else:
+        word = word.lower()
+        s2v = Sense2Vec().from_disk('s2v_old')
+        distractors = sense2vec_get_words(word, s2v)
+        return distractors
+
+def distractor_generator(answer):
+
+    """
+    Takes word.phrase as an input and generates similar words/phrases aka distractors
+
+    Parameters
+    ----------
+    answer : string
+        input words/phrases to generate distractors for
+
+    Returns
+    -------
+    all_distractors : list of strings
+        List of distractors for the given input
+          
+    """
+    cross_encoder = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')
+
+    all_distractors = []
+    dis = {}
+    for word in answer.split(" "):
+        distractor = get_distractors(word)
+        dis[word] = distractor
+    
+    while len(all_distractors) < 20:
+        distr = ""
+        for word in dis:
+            rand_idx = int(random.random() * len(dis[word]))
+            distr += dis[word][rand_idx] + " "
+        if not distr in all_distractors:
+            all_distractors.append(distr[:-1])
+
+    cross_inp = [[answer, all_distractors[i]] for i in range(len(all_distractors))]
+    cross_scores = cross_encoder.predict(cross_inp)
+
+    results = []
+    for i in sorted(range(len(cross_scores)), key=lambda i: cross_scores[i])[-3:]:
+        results.append(all_distractors[i])
+
+    return results
+
 def MCQ_generator(para, topic , k=5):
 
     """
@@ -203,20 +358,23 @@ def MCQ_generator(para, topic , k=5):
         List of k sentences best linked topic
           
     """
-    sents, correct_ans = sent_ans_extractor(para, topic , k=5)
+    sents, correct_ans = sent_ans_extractor(para, topic , k=5) # extracts the sentences and keywords
     questions = []
     all_ans = []
     for i,j in zip(sents, correct_ans):
-        ques = question_generator(i, j)
-        print('sentence :',i)
-        print('question :',ques)
-        print('answer :',j)
+        ques = question_generator(i, j) # generates the question
         questions.append(ques)
-        temp = [j]
 
-        # add distractor her
+        temp = distractor_generator(j) # generates the distractors
+        temp.append(j)
 
         random.shuffle(temp)
         all_ans.append(temp)
+        
+        # print('sentence :',i)
+        # print('question :',ques)
+        # print('all answer :',temp)
+        # print('correct answer:',j)
+        # print('\n')
 
     return questions, all_ans, correct_ans
