@@ -14,12 +14,13 @@ EOS_token = 1
 pad_token = 2
 MAX_LENGTH = 15
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+# device = 'cpu'
 
-DATA_DIR = "../data/"
+DATA_DIR = "data/"
 with open(DATA_DIR+"vocab.json", 'r') as f:
     WORD2IDX = json.load(f)
     
-max_sentence_len = 60
+max_sentence_len = 45
 #tokenization function
 text_pipeline = lambda x: [WORD2IDX.get(token.lower(), WORD2IDX['<unk>']) for token in word_tokenize(x)]
 
@@ -100,7 +101,7 @@ def evaluate(encoder, decoder, sentence, word2idx=WORD2IDX, max_length=MAX_LENGT
         
         sentence_length = torch.tensor([sentence_length], dtype=torch.int64)
         # input_tensor = torch.tensor(sentence_, dtype=torch.int64).reshape((max_sentence_len, 1))
-        input_tensor = torch.tensor([sentence_], dtype=torch.int64)
+        input_tensor = torch.tensor([sentence_], dtype=torch.int64).to(device)
         input_length = input_tensor.size(1)
         encoder_hidden = encoder.initHidden()
 
@@ -159,7 +160,7 @@ def evaluateAndShowAttention(encoder, decoder, input_sentence):
     output_words, attentions = evaluate(encoder, decoder, input_sentence)
     print('input =', input_sentence)
     print('output =', ' '.join(output_words))
-    # showAttention(input_sentence, output_words, attentions)
+    showAttention(input_sentence, output_words, attentions)
 
 
 def indexesFromSentence(lang, sentence):

@@ -5,7 +5,7 @@ import torch.nn.functional as F
 import numpy as np
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu') 
-glove_path = '../data/glove.6B.50d.txt'
+glove_path = 'data/glove.6B.50d.txt'
 
 MAX_LENGTH = 15
 
