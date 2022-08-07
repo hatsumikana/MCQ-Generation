@@ -26,7 +26,6 @@ def find_related_word_online(word):
         words.append(sent[ind1:ind2])
         sent = sent[ind2:]
         count+=1
-        
     return words
 
 def get_distractors(syn, word):
