@@ -1,17 +1,83 @@
+from turtle import onclick
 import streamlit as st
 import streamlit_book as stb
 from nltk import sent_tokenize
 
-st.set_page_config()
+with open('style.css') as f:
+    st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
+
+# st.session_state
+# Initialize session variables 
+if "num_qns" not in st.session_state:
+    st.session_state["num_qns"] = 0
+
+if "generated" not in st.session_state:
+    st.session_state["generated"] = False
+
+if "disabled_count" not in st.session_state:
+    st.session_state["disabled_count"] = 0
+
+if "submitted" not in st.session_state:
+    st.session_state["submitted"] = False
+
+################################
+# Front-end to accept inputs
+################################
 st.title("MCQ Generation")
+topic = st.text_input("", placeholder="Insert topic here...") 
 para = st.text_area("", placeholder="Insert context here...")
 num_qns = st.text_input("", max_chars=2) 
-result = st.button("Generate")
+generated = st.button("Generate questions")
 
+################################
+# AI pipeline
+################################
 passage = sent_tokenize(para)
 
-if result:
-    st.write(passage[0])
-    st.write("Number of questions", num_qns)
-    # for i in range(int(num_qns)):
-    stb.single_choice(f"{1}. {passage[0]}", options=["A", "B", "C", "D"], answer_index=1)
+ans_dic = {
+            "1": ["A", "B", "C", "D"],
+            "2": ["B", "C", "C", "D"],
+            "3": ["E", "F", "C", "D"],
+            "4": ["B", "G", "C", "D"],
+            }
+
+################################
+# Front-end to show questions based on AI pipeline 
+################################
+if num_qns:
+    st.session_state["num_qns"] = int(num_qns)
+
+if generated:
+    st.session_state["generated"] = generated
+    for i in range(int(num_qns)):
+        for j in range(1,5):
+            if f"{i}{j}_disabled" not in st.session_state:
+                st.session_state[f"{i}{j}_disabled"] = False
+            if f"{i}5" not in st.session_state:
+                st.session_state[f"{i}5_disabled"] = False
+
+def ans_cb(choice1, choice2, choice3, choice4, button):
+    st.session_state[choice1] = True
+    st.session_state[choice2] = True
+    st.session_state[choice3] = True
+    st.session_state[choice4] = True
+    st.session_state[button] = True
+    st.session_state.disabled_count +=4
+
+if st.session_state["generated"]:
+
+    for i in range(int(num_qns)):            
+        st.write(f"{i+1}. {passage[i]}")
+        st.text_input("",value=ans_dic[f"{i+1}"][0], key=f"{i}1", disabled=st.session_state[f"{i}1_disabled"]) 
+        st.text_input("",value=ans_dic[f"{i+1}"][1], key=f"{i}2", disabled=st.session_state[f"{i}2_disabled"]) 
+        st.text_input("",value=ans_dic[f"{i+1}"][2], key=f"{i}3", disabled=st.session_state[f"{i}3_disabled"]) 
+        st.text_input("",value=ans_dic[f"{i+1}"][3], key=f"{i}4", disabled=st.session_state[f"{i}4_disabled"])
+        ans = st.button("Accept Answers", key=f"{i}5", on_click=ans_cb, args=(f"{i}1_disabled", f"{i}2_disabled", f"{i}3_disabled", f"{i}4_disabled", f"{i}5_disabled"), disabled=st.session_state[f"{i}5_disabled"])
+
+if st.session_state.disabled_count//4 == st.session_state.num_qns and st.session_state.disabled_count>0 and st.session_state.num_qns>0:
+    submitted = st.button("Submit")
+    if submitted:
+        st.session_state.submitted = True
+
+if st.session_state.submitted:
+    st.write("MCQ quiz has been generated!")
