@@ -3,10 +3,27 @@ nltk.download('wordnet')
 from nltk.corpus import wordnet as wn
 from nltk.stem import WordNetLemmatizer
 from nltk.tag import pos_tag
+import random
+import requests
+from bs4 import BeautifulSoup
 
 import pandas as pd 
 
 lemmatizer = WordNetLemmatizer()
+
+def find_related_word_online(word):
+    r = requests.get("https://relatedwords.org/relatedto/" + word)
+    soup = BeautifulSoup(r.content, 'html5lib') # If this line causes an error, run 'pip install html5lib' or install html5lib
+    sent = soup.prettify()[soup.prettify().find('"terms"'):]
+    words = []
+    count = 0
+    while count != 3:
+        ind1 = sent.find('"word":')+8
+        ind2 = sent[ind1:].find('"')+ind1
+        words.append(sent[ind1:ind2])
+        sent = sent[ind2:]
+        count+=1
+    return words
 
 # Distractors from Wordnet
 def get_distractors_wordnet(syn,word):
@@ -17,7 +34,7 @@ def get_distractors_wordnet(syn,word):
         word = word.replace(" ","_")
     hypernym = syn.hypernyms()
     if len(hypernym) == 0: 
-        return distractors
+        return find_related_word_online(word)
     for item in hypernym[0].hyponyms():
         name = item.lemmas()[0].name()
         #print ("name ",name, " word",orig_word)
@@ -31,24 +48,31 @@ def get_distractors_wordnet(syn,word):
 
 
 if __name__=="__main__":
-    df = pd.read_csv("./data/qg_train.csv")
-    ans = df['answer'][:10]
-    
+    # df = pd.read_csv("../data/hatsumi_new.csv")
+    # ans = df['answer']
+    ans = ["singing and dancing"]
     for a in ans:
-        print(a)
-        print(nltk.pos_tag(a.split(" ")))
+        all_distractors = []
+        dis = {}
         for word in a.split(" "):
             stemmed_word = lemmatizer.lemmatize(word)
             synset_to_use = wn.synsets(stemmed_word)
             if synset_to_use == []:
                 continue
             distractors = get_distractors_wordnet(synset_to_use[0], word)
-            print(word, distractors)
+            dis[word] = distractors
+        
+        while len(all_distractors) < 3:
+            distr = ""
+            for word in dis:
+                rand_idx = int(random.random() * len(dis[word]))
+                distr += dis[word][rand_idx] + " "
+            if not distr in all_distractors:
+                all_distractors.append(distr[:-1])
+        print(a, all_distractors)
+
             
         print()
         
-        # if 4-digit number --> assume it's a year --> add/subtract random number btw 1-10
-        # else if other number --> add/subtract random number --> don't change +ve or -ve
-        # else if word --> check POS --> get distractors --> try to match POS 
-        # if word is a NOUN --> entity recognizer (Check if word is a name) -->  
+            
         

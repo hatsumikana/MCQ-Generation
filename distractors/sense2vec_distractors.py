@@ -65,41 +65,41 @@ def get_distractors(word):
         return distractors
 
 
-# if __name__=="__main__":
-#     df = pd.read_csv("../data/hatsumi_new.csv")
-#     all_answers = df['answer']
-    
-
-#     # answer = "singing and dancing"
-#     for answer in all_answers:
-#         all_distractors = []
-#         dis = {}
-#         for word in answer.split(" "):
-#             distractor = get_distractors(word)
-#             dis[word] = distractor
-        
-#         while len(all_distractors) < 3:
-#             distr = ""
-#             for word in dis:
-#                 rand_idx = int(random.random() * len(dis[word]))
-#                 distr += dis[word][rand_idx] + " "
-#             if distr not in all_distractors:
-#                 all_distractors.append(distr[:-1])
-#         print(answer, all_distractors)
-
 if __name__=="__main__":
-    answer = "beautiful liar"
-    all_distractors = []
-    dis = {}
-    for word in answer.split(" "):
-        distractor = get_distractors(word)
-        dis[word] = distractor
+    # df = pd.read_csv("../data/hatsumi_new.csv")
+    # all_answers = df['answer']
     
-    while len(all_distractors) < 3:
-        distr = ""
-        for word in dis:
-            rand_idx = int(random.random() * len(dis[word]))
-            distr += dis[word][rand_idx] + " "
-        if distr not in all_distractors:
-            all_distractors.append(distr[:-1])
-    print(answer, all_distractors)
+
+    all_answers = ["singing and dancing"]
+    for answer in all_answers:
+        all_distractors = []
+        dis = {}
+        for word in answer.split(" "):
+            distractor = get_distractors(word)
+            dis[word] = distractor
+        
+        while len(all_distractors) < 3:
+            distr = ""
+            for word in dis:
+                rand_idx = int(random.random() * len(dis[word]))
+                distr += dis[word][rand_idx] + " "
+            if not distr in all_distractors:
+                all_distractors.append(distr[:-1])
+        print(answer, all_distractors)
+
+# if __name__=="__main__":
+#     answer = "beautiful liar"
+#     all_distractors = []
+#     dis = {}
+#     for word in answer.split(" "):
+#         distractor = get_distractors(word)
+#         dis[word] = distractor
+    
+#     while len(all_distractors) < 3:
+#         distr = ""
+#         for word in dis:
+#             rand_idx = int(random.random() * len(dis[word]))
+#             distr += dis[word][rand_idx] + " "
+#         if distr not in all_distractors:
+#             all_distractors.append(distr[:-1])
+#     print(answer, all_distractors)

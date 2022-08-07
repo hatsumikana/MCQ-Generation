@@ -110,7 +110,7 @@ if __name__=="__main__":
             for k in distractor:
                 rand_idx = int(random.random() * len(distractor[k]))
                 distr += distractor[k][rand_idx] + " "
-            if distr not in distr_phrases:
+            if not distr in distr_phrases:
                 distr_phrases.append(distr[:-1])
     
         all_distractors.append(distr_phrases)
