@@ -81,4 +81,4 @@ streamlit run QuizMaker.py
 
 1004359	Mihir Chhiber
 
-We would like to thank the faculty for 50.021 Artificial Intelligence at SUTD for guiding us through this project.
+We would like to thank the faculty of 50.021 Artificial Intelligence at SUTD for guiding us through this project.
