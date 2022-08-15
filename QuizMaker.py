@@ -73,6 +73,9 @@ if generated:
     with st.spinner('Generating quiz...'):
         # Use 1st topic only
         questions, all_ans, correct_ans = MCQ_generator(para, topics[0] , k=st.session_state.num_qns)
+    
+    for question in questions:
+        question[0] = question[0].replace("<extra_id_0>", "__________")
 
     if questions:
         st.session_state.questions = questions
@@ -91,13 +94,19 @@ if st.session_state.generated:
             if f"{i}5" not in st.session_state:
                 st.session_state[f"{i}5_disabled"] = False
 
-def ans_cb(choice1, choice2, choice3, choice4, button):
+def ans_cb(i, corr_idx, choice1, choice2, choice3, choice4, button):
     st.session_state[choice1] = True
     st.session_state[choice2] = True
     st.session_state[choice3] = True
     st.session_state[choice4] = True
     st.session_state[button] = True
     st.session_state.disabled_count +=4
+
+    st.session_state.all_ans[i][0] = st.session_state[f"{i}1"]
+    st.session_state.all_ans[i][1] = st.session_state[f"{i}2"]
+    st.session_state.all_ans[i][2] = st.session_state[f"{i}3"]
+    st.session_state.all_ans[i][3] = st.session_state[f"{i}4"]
+    st.session_state.correct_ans[i] = st.session_state[f"{i}{corr_idx+1}"]
 
 # define border colors for correct and wrong
 wrong = "lightcoral"
@@ -109,13 +118,14 @@ if st.session_state.generated:
         # Display text inputs with anwers from AI model as default    
         st.write(f"**Question {i+1}**")
         st.write(f"{st.session_state.questions[i][0].capitalize()}")
+
+        # Get index of correct answer
+        idx_correct = st.session_state.all_ans[i].index(st.session_state.correct_ans[i])
+
         st.text_input("",value=st.session_state.all_ans[i][0], key=f"{i}1", disabled=st.session_state[f"{i}1_disabled"]) 
         st.text_input("",value=st.session_state.all_ans[i][1], key=f"{i}2", disabled=st.session_state[f"{i}2_disabled"]) 
         st.text_input("",value=st.session_state.all_ans[i][2], key=f"{i}3", disabled=st.session_state[f"{i}3_disabled"]) 
         st.text_input("",value=st.session_state.all_ans[i][3], key=f"{i}4", disabled=st.session_state[f"{i}4_disabled"])
-        
-        # Get index of correct answer
-        idx_correct = st.session_state.all_ans[i].index(st.session_state.correct_ans[i])
         
         # Edit border colors 
         components.html(
@@ -135,7 +145,7 @@ if st.session_state.generated:
             height=0,
             width=0,
         )
-        ans = st.button("Accept Answers", key=f"{i}5", on_click=ans_cb, args=(f"{i}1_disabled", f"{i}2_disabled", f"{i}3_disabled", f"{i}4_disabled", f"{i}5_disabled"), disabled=st.session_state[f"{i}5_disabled"])
+        ans = st.button("Accept Answers", key=f"{i}5", on_click=ans_cb, args=(i, idx_correct, f"{i}1_disabled", f"{i}2_disabled", f"{i}3_disabled", f"{i}4_disabled", f"{i}5_disabled"), disabled=st.session_state[f"{i}5_disabled"])
 
 def submit_cb():
     st.session_state.submitted_disabled = True
