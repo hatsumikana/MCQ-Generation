@@ -56,7 +56,7 @@ st.write("**Enter Quiz Title:**")
 quiz_title = st.text_input("", placeholder="Please enter the quiz title...") 
 para = st.text_area("", placeholder="Insert context here...")
 st.write("**Enter Number Of Questions:**")
-num_qns = st.text_input("", max_chars=2, placeholder="Key in a number from 1-99") 
+num_qns = st.text_input("", max_chars=2, placeholder="Key in a number from 1-20") 
 generated = st.button("Generate questions")
 
 ################################
@@ -65,14 +65,17 @@ generated = st.button("Generate questions")
 
 # Update session state variables
 if num_qns:
-    st.session_state["num_qns"] = int(num_qns)
+    st.session_state["num_qns"] = min(int(num_qns), 20)
 
 if generated:
     st.session_state["generated"] = generated
 
     with st.spinner('Generating quiz...'):
         # Use 1st topic only
-        questions, all_ans, correct_ans = MCQ_generator(para, topics[0] , k=st.session_state.num_qns)
+        questions, all_ans, correct_ans, k = MCQ_generator(para, topics[0] , k=st.session_state.num_qns)
+    
+    num_qns = k
+    st.session_state.num_qns = num_qns
     
     for question in questions:
         question[0] = question[0].replace("<extra_id_0>", "__________")
@@ -167,5 +170,5 @@ def save_to_excel():
 
 if st.session_state.submitted:
     save_to_excel()
-    st.subheader("MCQ quiz has been generated! Go to quiz page to review quiz")
+    st.subheader("MCQ quiz has been generated! Go to Quiz page to review")
     st.session_state.clear()

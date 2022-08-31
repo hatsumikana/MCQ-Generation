@@ -1,23 +1,29 @@
-from sentence_transformers import SentenceTransformer, CrossEncoder, util
 import torch
-from nltk import sent_tokenize
-import nltk
-import re
-import spacy
-import pytextrank
+from sentence_transformers import SentenceTransformer, CrossEncoder, util
 from transformers import T5Tokenizer, T5ForConditionalGeneration
 from QuestionGenerator import QuestionGenerator
-import random
-from collections import OrderedDict
+
+import nltk
+from nltk import sent_tokenize
+from nltk.corpus import wordnet as wn
+
+import spacy
+import pytextrank
 from sense2vec import Sense2Vec
+import profanity_check
+
 import requests
 from bs4 import BeautifulSoup
-from nltk.corpus import wordnet as wn
+
+from collections import OrderedDict
 import random
-import pandas as pd 
+import re
+import pandas as pd
+
 nlp = spacy.load("en_core_web_lg")
 nlp.add_pipe("textrank")
 nltk.download('punkt')
+s2v = Sense2Vec().from_disk('s2v_old')
 
 def semanticsearch(para, topic, k=5):
 
@@ -44,7 +50,8 @@ def semanticsearch(para, topic, k=5):
 
     # Separates the sentences in the given para
     passage = sent_tokenize(para)
-
+    if len(passage)<k:
+        print("Warning: Passage is too short")
     # Loads the Bi-Encoder Model 
     bi_encoder = SentenceTransformer('msmarco-distilbert-base-v4')
     bi_encoder.max_seq_length = 256     #Truncate long passages to 256 tokens
@@ -219,7 +226,7 @@ def find_related_word_online(word):
         count+=1
     return words
 
-def sense2vec_get_words(word,s2v):
+def sense2vec_get_words(word,s2v=s2v):
     
     """
     Takes word/phrase as an input and generates similar words/phrases 
@@ -258,6 +265,31 @@ def sense2vec_get_words(word,s2v):
     out = list(OrderedDict.fromkeys(output))
     return out
 
+def scrub_distractor(text):
+    """
+    Takes word/phrase as an input and removes any profanity
+
+    Parameters
+    ----------
+    text : string
+        word/phrase to scrub
+
+    Returns
+    -------
+    scrubbed : string
+        word/phrase after removing any profanity or None if input was singular profane word
+          
+    """
+    scrubbed = []
+    for word in text.split():
+        profanity = profanity_check.predict([word])[0] #profanity_check.predict accepts/returns array
+        if not profanity:
+            scrubbed.append(word)
+    if len(scrubbed)<1:
+        return None
+    scrubbed = " ".join(scrubbed)
+    return scrubbed
+    
 def get_distractors(word):
     
     """
@@ -279,26 +311,28 @@ def get_distractors(word):
         if len(word) == 4:
             # if 4-digit number --> assume it's a year --> add/subtract random number btw 1-10
             randomlist = random.sample(range(-10, 10), 20)
-            for num in randomlist:
-                distractors.append(str(int(word) + num))
-            return distractors
         else:
             # else if other number --> add/subtract random number --> don't change +ve or -ve
             randomlist = random.sample(range(-1000, 1000), 20)
-            for num in randomlist:
-                distractors.append(str(int(word) + num))
-            return distractors
+        
+        for num in randomlist:
+            distractors.append(str(int(word) + num))
+        return distractors
 
     else:
         word = word.lower()
-        s2v = Sense2Vec().from_disk('s2v_old')
-        distractors = sense2vec_get_words(word, s2v)
-        return distractors
+        # s2v = Sense2Vec().from_disk('s2v_old')
+        distractors = sense2vec_get_words(word)
+        scrubbed = []
+        for d in distractors:
+            new_d = scrub_distractor(d)
+            if new_d: scrubbed.append(new_d)
+        return scrubbed
 
 def distractor_generator(answer):
 
     """
-    Takes word.phrase as an input and generates similar words/phrases aka distractors
+    Takes word/phrase as an input and generates similar words/phrases aka distractors
     This function ranks them using cross enoder to get better distractors
 
     Parameters
@@ -346,7 +380,7 @@ def MCQ_generator(para, topic , k=5):
     Parameters
     ----------
     para : string
-        Text for the pare
+        Text for the paragraph
     topic : string
         Text for the topic
     k : int
@@ -355,14 +389,20 @@ def MCQ_generator(para, topic , k=5):
 
     Returns
     -------
-    data : list of strings
-        List of k sentences best linked topic
+    data : lists of strings
+        Lists of k items. 
+        A separate list for questions, all choices and correct answer
           
     """
     sents, correct_ans = sent_ans_extractor(para, topic , k) # extracts the sentences and keywords
     questions = []
     all_ans = []
     for i,j in zip(sents, correct_ans):
+        clean_correct_ans = scrub_distractor(j)
+        if clean_correct_ans is None: 
+            k-=1
+            continue
+    
         ques = question_generator(i, j) # generates the question
         questions.append(ques)
 
@@ -377,8 +417,8 @@ def MCQ_generator(para, topic , k=5):
         # print('all answer :',temp)
         # print('correct answer:',j)
         # print('\n')
-
-    return questions, all_ans, correct_ans
+    # print(k)
+    return questions, all_ans, correct_ans, k
 
 if __name__ == "__main__":
     topic = "Dialect"
