@@ -14,25 +14,22 @@ Run the commands below on the terminal
 git clone https://github.com/hatsumikana/MCQ-Generation.git
 cd MCQ-Generation
 pip install -r requirements.txt
-python -m spacy download en_core_web_l
+python -m spacy download en_core_web_lg
 ```
 
-[Download T5 model weights
-t5-small (200MB)](https://sutdapac-my.sharepoint.com/:u:/g/personal/gargi_pandkar_mymail_sutd_edu_sg/EUB9OSuWSi5FmC3Dsl8xs-gBx4zt-ff-lcMJPUAOjsDSqg?e=Kg8JIV)
+Download T5 model weights. Place folders such that `MCQ-Generation/outputs/final`.
+- [t5-small (200MB)](https://drive.google.com/drive/folders/15sBtWbXWK45hL3Iqwha-Ojoa6KocWNP0?usp=sharing)
 
-[Download t5-base (800MB)](https://sutdapac-my.sharepoint.com/:u:/g/personal/gargi_pandkar_mymail_sutd_edu_sg/EUSN9U-s3SZNkVT5YNq4JikBAIYxC7fXAw8-9V9gvaBTkQ?e=RSL2lb)
 
-Place folders as such -> MCQ-Generation/outputs/final
+Download pretrained Sense2Vec vectors. Place such that `MCQ-Generation/s2v_old`.
+- [s2v_reddit_2015_md (573 MB)](https://github.com/explosion/sense2vec/releases/download/v1.0.0/s2v_reddit_2015_md.tar.gz) 
 
-[Download Sense2Vec](https://github.com/explosion/sense2vec/releases/download/v1.0.0/s2v_reddit_2015_md.tar.gz)
-
-Place as such -> MCQ-Generation/s2v_old
-
-After completing the steps provided above, run the command below to launch the application
+After completing the steps provided above, run the command below to launch the application. 
 
 ```bash
 streamlit run QuizMaker.py
 ```
+Ideally, use a GPU-enabled device.
 
 ## GUI Demonstration
 
@@ -41,7 +38,7 @@ streamlit run QuizMaker.py
    - Title of quiz
    - Context to generate questions from
    - Number of questions to generate
-2. Click Generate and wait for 2-3mins depending on how many questions are being generated
+2. Click Generate and wait for several minutes. Time taken depends on length of passage & number of questions.
 
 ![image1](images/image1.png)
 
